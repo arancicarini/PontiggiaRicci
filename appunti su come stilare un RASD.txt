@@ -1,14 +1,20 @@
 problemi un po' più strutturali: 
 
-- si sono un po' troppo fissati sull'uso di google maps, insistendo un po' troppo, mentre si sono poco focalizzati sugli altri servizi esterni scagandoli male
+- si sono un po' troppo fissati sull'uso di google maps, insistendo un po' troppo, 
+mentre si sono poco focalizzati sugli altri servizi esterni scagandoli male
 
 - molti gruppi hanno messo come requisito che bisogna avere google maps --> è un requisito troppo stringente , troppo forte
 
--le preferenze non sono state definite veramente bene , essendo che poi ci hanno fatto 14 requisiti sopra sarebbero potuti essere un po' più precisi nel definirle
+-le preferenze non sono state definite veramente bene , 
+essendo che poi ci hanno fatto 14 requisiti sopra sarebbero potuti essere un po' più precisi nel definirle
 
--avaiability e reliability spesso sono un po' sottovalutate --> non è banale richiedere che sia disponibile 24/7 o che funzioni al 99,99%. dal punto di vista del business ci sta tirarsela con un'avaiability mega bomba ma se poi non sei in grado di garantirla o scleri per farlo non è così buona come cosa
+-avaiability e reliability spesso sono un po' sottovalutate --> 
+non è banale richiedere che sia disponibile 24/7 o che funzioni al 99,99%. 
+dal punto di vista del business ci sta tirarsela con un'avaiability mega bomba 
+ma se poi non sei in grado di garantirla o scleri per farlo non è così buona come cosa
 
--STAY FOCUS ! (l'anno scorso alcuni hanno presentato 80/90 pagine di documentazione, non è per forza sbagliato ma non c'è bisogno di esagerare nel descrivere tutto è importante descrivere bene le cose importanti)
+-STAY FOCUS ! (l'anno scorso alcuni hanno presentato 80/90 pagine di documentazione, 
+non è per forza sbagliato ma non c'è bisogno di esagerare nel descrivere tutto è importante descrivere bene le cose importanti)
 
 -sequence diagram : sono fatti abbastanza bene ma ci sono delle cosine un po' gravi: nel secondo sono andati un po' troppo a fondo nel mostrare cosa succede dietro le quinte e sono un po' andati a finire nell'architectural diagram , mostrando proprio i componenti o le robe specifiche. è più architetturale che di requisito
 
@@ -47,7 +53,8 @@ ci sono alcuni elementi che non sono usati
 bene la descrizione in cui si spiega su quali aspetti ci si vuole focalizzare per formalizzare il modello 
 --> assolutamente da fare l'introduzione e la descrizione dell'alloy model spiegando quali sono gli obiettivi del model, da fare anche meglio di questa qui
 
-ma bisogna rimanere focalizzati e modellizzare solo le cose rilevanti e non tutto già pensando al model --> scegliere solo le cose rilevanti e soprattutto chiarire bene gli obiettivi e cosa si vuole 
+ma bisogna rimanere focalizzati e modellizzare solo le cose rilevanti e non tutto già pensando al model --> 
+scegliere solo le cose rilevanti e soprattutto chiarire bene gli obiettivi e cosa si vuole 
 
 
 questo è sbagliato ! ci sta 
