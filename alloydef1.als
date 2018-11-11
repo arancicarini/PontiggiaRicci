@@ -139,32 +139,30 @@ all t1:ThirdParty, u1:User | t1.email != u1.fiscalCode
 }
 
 //TIME MODELLING
-// all'istante zero non ci sono tuple
+// no tuple at time zero
 fact ZeroFirstUser{
 all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (number > 0 ) )
 }
 
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
+//when inserting a tupla at time x, this will be inserted for all the successive instants 
 fact InvariantUser{
 all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (all num:Int | (num>number) implies(num -> (s -> d)) in u1.thirdpartiesallowed))
 }
 
-//all'instante Zero non ci sono tuple
+// no tuple at time zero
 fact ZeroFirstDataReceived{
 all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.datareceived) implies (number > 0 ))
 }
-
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
+//when inserting a tupla at time x, this will be inserted for all the successive instants 
 fact InvariantDataReceived{
 all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.datareceived) implies (all num:Int | (num>number)implies((num -> d) in t1.datareceived)))
 }
-
-//all'istante Zero non ci sono tuple
+// no tuple at time zero
 fact ZeroFirstgroupedDataReceived{
 all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.groupeddatareceived) implies (number > 0 ))
 }
 
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
+//when inserting a tupla at time x, this will be inserted for all the successive instants 
 fact InvariantgroupedDataReceived{
 all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.groupeddatareceived) implies (all num:Int | (num>number)implies((num -> d) in t1.groupeddatareceived)))
 }
@@ -217,55 +215,7 @@ sig Datapool {
 data:some Data
 }
 
-// in a datapool there are all and only the data which match the parameters
-fact AlltheSameParameter{
-all datapool:Datapool | no d1,d2:Data | d1.parameters != d2.parameters and d1 in datapool.data and d2 in datapool.data
-}
 
-fact AllTheParameter{
-all datapool:Datapool | no d1,d2:Data | d1.parameters = d2.parameters and d1 in datapool.data and d2 not in datapool.data
-}
-
-
-//se in questo istante ci sei e nel precedente no è perchè ho appena fatto la richiesta che è andata a buon fine
-//fact JustRequested{
-//all t1:ThirdParty,  d1:Data, num1, num2:Int | ((one req:GroupRequest |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters)))implies ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 )  
-
-//}
-
-
-//Anonymize when possible if requested data about groups of clients
-//Hp: 3 rappresenta la soglia
-fact AccesstoAnonymizedData{
-all t1: ThirdParty,  pool:Datapool|(
-one num:Int |
-one req: GroupRequest| (
-
-req.time = num 
-and (all d1:Data | ((d1 in pool.data) implies (d1 not in ThirdParty.groupeddatareceived[num])))
- and req.requester = t1.email  
-and (all d1:Data | d1 in pool.data implies d1.parameters = req.parameters) 
-and 
-(
-      (     (#(pool.data)  > 2) and   all number:Int | (number > num implies  ((all d1:Data | d1 in pool.data implies  d1 in t1.groupeddatareceived[number] ) and  (all d1:Data | d1 in pool.data implies d1.identifier = "nobody") ))
-      )
-or 
-      (    (#(pool.data) <3) and   all number:Int | (number > num  implies (all d1:Data | d1 in pool.data implies d1 not in t1.groupeddatareceived[number]))
-	  )
-)
-)
-)
-
-
-}
-
-
-
-//assertions checking that privacy is always respected
-//"Nobody" is a constant used to model whene the fiscal code is anonymized
-assert PrivacyIsProtected{
-all t1:ThirdParty, num:Int | all d1: t1.groupeddatareceived[num] | d1.identifier = "nobody"
-}
 
 assert PrivacyIsProtected2{
 all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) implies one u1:User | (num -> (t1.email -> d1) in u1.thirdpartiesallowed))
