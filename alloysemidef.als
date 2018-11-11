@@ -59,7 +59,6 @@ identifier: lone String,
 parameters: one Parameters,
 healthValues: one Int,
 time: one Time,
-anon : one Bool
 }
 
 sig Parameters{
@@ -229,22 +228,23 @@ all datapool:Datapool | no d1,d2:Data | d1.parameters = d2.parameters and d1 in 
 
 
 //se in questo istante ci sei e nel precedente no è perchè ho appena fatto la richiesta che è andata a buon fine
-//fact JustRequested{
-//all t1:ThirdParty,  d1:Data, num1, num2:Int | ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 ) <=> ( 
-//(one req:Request |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters)))
-//}
+fact JustRequested{
+all t1:ThirdParty,  d1:Data, num1, num2:Int | ((one req:GroupRequest |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters)))implies ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 )  
+
+}
 
 
 //Anonymize when possible if requested data about groups of clients
 //Hp: 3 rappresenta la soglia
 fact AccesstoAnonymizedData{
-all p1: Parameters, t1: ThirdParty, num:Int,  pool:Datapool|(
+all t1: ThirdParty,  pool:Datapool|(
+one num:Int |
 one req: GroupRequest| (
+
 req.time = num 
 //and (all d1:Data | ((d1 in pool.data) implies (d1 not in ThirdParty.groupeddatareceived[num])))
  and req.requester = t1.email  
-and (all d1:Data | d1 in pool.data implies d1.parameters = p1) 
-and  req.parameters=p1
+and (all d1:Data | d1 in pool.data implies d1.parameters = req.parameters) 
 and 
 (
       (     (#(pool.data)  > 2) and   all number:Int | (number > num implies  ((all d1:Data | d1 in pool.data implies  d1 in t1.groupeddatareceived[number] ) and  (all d1:Data | d1 in pool.data implies d1.identifier = "nobody") ))
@@ -344,14 +344,14 @@ all t1:ThirdParty, al1:Alert | ( (al1.alertID in t1.alerts) implies (all u1:User
 }
 
 
-//the main goal of AutoMatedSos
+//the main goal of AutomatedSos
 assert HandleEmergency{
 all t1:Time, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True in u1.IsUnderAssistance))
 }
 
 
 //commands
-run AllowThirdPartiesToGetData  for 4 but  exactly 6 String,  4 Int
+run AllowThirdPartiesToGetData for 4 but  exactly 6 String,  4 Int
 
 
 
