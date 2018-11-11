@@ -41,11 +41,11 @@ abstract sig Request{
 requestID: Int,
 requester:String,
 time: Int,
-parameters: Parameters
+parameters: one Parameters
 }
 {
 requestID > 0
-time > -1
+time > 0
 }
 
 sig IndividualRequest extends Request{
@@ -69,14 +69,10 @@ sig Parameters{
 sig Time{
 }
 
-// a pool containing data when users asks for data of a group of individuals
-sig Datapool{
-data: set Data
-}
+
 
 
 //facts
-
 //requests must regard subscribed users
 fact IndivdualRequestmustRegardAsubscribedUser{
   all r1: IndividualRequest |  IsSubscribedtoData4Help[r1.identifier]
@@ -107,6 +103,14 @@ fact EmailsAreUnique{
 no disjoint t1,t2: ThirdParty | (t1.email = t2.email )
 }
 
+fact NoThirdPArtycancallHimselfNobody{
+no t1:ThirdParty | t1.email = "nobody"
+}
+
+fact basicAssumption[
+all t1:ThirdPArty | #(thirdparty.groupeddatareceived) = 0 or > 2
+}
+
 //there are no two health values regarding the same user of the same dateTime
 fact NoSameTimeSameUserData{
 all disj d1,d2: Data | d1.identifier = d2.identifier implies d1.time != d2.time
@@ -128,10 +132,12 @@ fact Onlygroupedrequested{
 all t1:ThirdParty,d1:Data,num:Int | (num -> d1 in t1.groupeddatareceived) implies existsgroupedsassociatedRequest[t1,d1, num]
 }
 
-//a datapool contains data of only one parameter
-fact Datapoolwithonlyoneparameter{
-all datapool: Datapool | no d1,d2:Data | (d1.parameters != d2.parameters and d1 in datapool.data and d2 in datapool.data)
+//se in questo istante ci sei e nel precedente no è perchè ho appena fatto la richiesta
+fact JustRequested{
+all t1:ThirdParty,  d1:Data, num1, num2:Int | ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 ) <=> ( 
+one req:Request |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters))
 }
+
 
 //third parties e utenti non possono avere lo stesso identificativo
 fact ThirdPartiesandUsersDosjointed{
@@ -198,10 +204,10 @@ one num:Int | (
 (req.time=num) and 
 d1 not in t1.datareceived[num]) and
 (req.requester = t1.email) and
-(req.identifier = u1.fiscalCode) and
-(d1.identifier = u1.fiscalCode) and
-(num -> (t1.email -> d1) not in u1.thirdpartiesallowed) and
-(d1.parameters = req.parameters) and (  
+(req.identifier = u1.fiscalCode) and (d1.identifier = u1.fiscalCode) and
+(num -> (t1.email -> d1) not in u1.thirdpartiesallowed)  and
+(d1.parameters = req.parameters) 
+and (  
 (all number:Int| ( (number > num) implies 
 (d1 in t1.datareceived[number] and
 (number -> (t1.email -> d1) in u1.thirdpartiesallowed))))
@@ -209,27 +215,39 @@ or
 (all number:Int| ( (number > num) implies 
 (d1  not in t1.datareceived[number] and
 (number -> (t1.email -> d1) not  in u1.thirdpartiesallowed))))))
+}
 
+sig Datapool {
+data:some Data
+}
+
+// in a datapool there are all and only the data which match the parameters
+fact AlltheSameParameter{
+all datapool:Datapool | no d1,d2:Data | d1.parameters != d2.parameters and d1 in datapool.data and d2 in datapool.data
+}
+
+fact AllTheParameter{
+all datapool:Datapool | no d1,d2:Data | d1.parameters = d2.parameters and d1 in datapool.data and d2 not in datapool.data
 }
 
 
-//Anonymize when possible if requested data about gropus of clients
+
+//Anonymize when possible if requested data about groups of clients
+//Hp: 3 rappresenta la soglia
 fact AccesstoAnonymizedData{
-all t1: ThirdParty, req: GroupRequest, d1: Data, datapool:Datapool|(
+all p1: Parameters, t1: ThirdParty, req: GroupRequest, pool:Datapool|(
 one num:Int | (
-req.requester = t1.email and req.time = num and
-//in datapool there are all and only data of the same parameters
-d1.parameters = req.parameters and
-(all d2 :datapool.data | d1.parameters = d2.parameters) and
-(no d1:Data | d1.parameters= req.parameters and d1 not in datapool.data)  
-//the third party does not have yet received similar data
-and ( no d1:Data| d1 in datapool.data and d1 in ThirdParty.groupeddatareceived[num])
+req.time = num 
+//and (all d1:Data | ((d1 in pool.data) implies (d1 not in ThirdParty.groupeddatareceived[num])))
+ and req.requester = t1.email  
+and (all d1:Data | d1 in pool.data implies d1.parameters = p1) 
+and  req.parameters=p1
 and 
 (
-      ((# datapool.data.identifier > 2) and   all number:Int | (number > num implies (all d1:datapool.data | (d1 in t1.groupeddatareceived[number] and d1.identifier = "Nobody")))
+      (     (#(pool.data)  > 2) and   all number:Int | (number > num implies ((all d1:Data | d1 in pool.data implies  d1 in t1.groupeddatareceived[number] ) and  (all d1:Data | d1 in pool.data implies d1.identifier = "nobody") ))
       )
 or 
-      ((# datapool.data.identifier <3) and   all number:Int | (number > num implies (all data2:Data| data2 in datapool.data implies data2 not in t1.groupeddatareceived[number]))
+      (    (#(pool.data) <3) and   all number:Int | (number > num implies (all d1:Data | d1 in pool.data implies d1 not in t1.groupeddatareceived[number]))
 	  )
 )
 )
@@ -241,7 +259,7 @@ or
 //assertions checking that privacy is always respected
 //"Nobody" is a constant used to model whene the fiscal code is anonymized
 assert PrivacyIsProtected{
-all t1:ThirdParty, num:Int | all d1: t1.groupeddatareceived[num] | d1.identifier = "Nobody"
+all t1:ThirdParty, num:Int | all d1: t1.groupeddatareceived[num] | d1.identifier = "nobody"
 }
 
 assert PrivacyIsProtected2{
@@ -328,7 +346,7 @@ all t1:Time, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True 
 
 
 //commands
-run  for 5 but  exactly 4 String, 3 Int
+check PrivacyIsProtected for 3 but  exactly 5 String, 5 Int
 
 
 
