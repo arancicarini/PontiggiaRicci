@@ -58,7 +58,8 @@ sig Data{
 identifier: lone String,
 parameters: one Parameters,
 healthValues: one Int,
-time: one Time
+time: one Time,
+anon : one Bool
 }
 
 sig Parameters{
@@ -76,6 +77,10 @@ sig Time{
 //requests must regard subscribed users
 fact IndivdualRequestmustRegardAsubscribedUser{
   all r1: IndividualRequest |  IsSubscribedtoData4Help[r1.identifier]
+}
+//Notworequestsatthesametime
+fact NoContemporary{
+no disj req1, req2: Request | req1.requester = req2.requester and req1.time = req2.time
 }
 
 //data must regard subscribed users
@@ -103,13 +108,7 @@ fact EmailsAreUnique{
 no disjoint t1,t2: ThirdParty | (t1.email = t2.email )
 }
 
-fact NoThirdPArtycancallHimselfNobody{
-no t1:ThirdParty | t1.email = "nobody"
-}
 
-fact basicAssumption[
-all t1:ThirdPArty | #(thirdparty.groupeddatareceived) = 0 or > 2
-}
 
 //there are no two health values regarding the same user of the same dateTime
 fact NoSameTimeSameUserData{
@@ -132,11 +131,7 @@ fact Onlygroupedrequested{
 all t1:ThirdParty,d1:Data,num:Int | (num -> d1 in t1.groupeddatareceived) implies existsgroupedsassociatedRequest[t1,d1, num]
 }
 
-//se in questo istante ci sei e nel precedente no è perchè ho appena fatto la richiesta
-fact JustRequested{
-all t1:ThirdParty,  d1:Data, num1, num2:Int | ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 ) <=> ( 
-one req:Request |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters))
-}
+
 
 
 //third parties e utenti non possono avere lo stesso identificativo
@@ -174,6 +169,8 @@ all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.group
 fact InvariantgroupedDataReceived{
 all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.groupeddatareceived) implies (all num:Int | (num>number)implies((num -> d) in t1.groupeddatareceived)))
 }
+
+
 
 
 
@@ -231,12 +228,18 @@ all datapool:Datapool | no d1,d2:Data | d1.parameters = d2.parameters and d1 in 
 }
 
 
+//se in questo istante ci sei e nel precedente no è perchè ho appena fatto la richiesta che è andata a buon fine
+//fact JustRequested{
+//all t1:ThirdParty,  d1:Data, num1, num2:Int | ( (num1 -> d1 not in t1.groupeddatareceived) and ( num2 -> d1 in  t1.groupeddatareceived ) and num2 = num1 +1 ) <=> ( 
+//(one req:Request |  (req.requester = t1.email and req.time = num1 and req.parameters = d1.parameters)))
+//}
+
 
 //Anonymize when possible if requested data about groups of clients
 //Hp: 3 rappresenta la soglia
 fact AccesstoAnonymizedData{
-all p1: Parameters, t1: ThirdParty, req: GroupRequest, pool:Datapool|(
-one num:Int | (
+all p1: Parameters, t1: ThirdParty, num:Int,  pool:Datapool|(
+one req: GroupRequest| (
 req.time = num 
 //and (all d1:Data | ((d1 in pool.data) implies (d1 not in ThirdParty.groupeddatareceived[num])))
  and req.requester = t1.email  
@@ -244,10 +247,10 @@ and (all d1:Data | d1 in pool.data implies d1.parameters = p1)
 and  req.parameters=p1
 and 
 (
-      (     (#(pool.data)  > 2) and   all number:Int | (number > num implies ((all d1:Data | d1 in pool.data implies  d1 in t1.groupeddatareceived[number] ) and  (all d1:Data | d1 in pool.data implies d1.identifier = "nobody") ))
+      (     (#(pool.data)  > 2) and   all number:Int | (number > num implies  ((all d1:Data | d1 in pool.data implies  d1 in t1.groupeddatareceived[number] ) and  (all d1:Data | d1 in pool.data implies d1.identifier = "nobody") ))
       )
 or 
-      (    (#(pool.data) <3) and   all number:Int | (number > num implies (all d1:Data | d1 in pool.data implies d1 not in t1.groupeddatareceived[number]))
+      (    (#(pool.data) <3) and   all number:Int | (number > num  implies (all d1:Data | d1 in pool.data implies d1 not in t1.groupeddatareceived[number]))
 	  )
 )
 )
@@ -255,6 +258,8 @@ or
 
 
 }
+
+
 
 //assertions checking that privacy is always respected
 //"Nobody" is a constant used to model whene the fiscal code is anonymized
@@ -346,7 +351,7 @@ all t1:Time, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True 
 
 
 //commands
-check PrivacyIsProtected for 3 but  exactly 5 String, 5 Int
+run AllowThirdPartiesToGetData  for 4 but  exactly 6 String,  4 Int
 
 
 
