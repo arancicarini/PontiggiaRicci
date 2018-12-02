@@ -41,7 +41,8 @@ abstract sig Request{
 requestID: Int,
 requester:String,
 time: Int,
-parameters: one Parameters
+parameters: one Parameters,
+accepted: one Bool 
 }
 {
 requestID > 0
@@ -50,7 +51,6 @@ time > 0
 
 sig IndividualRequest extends Request{
 identifier: one String,
-accepted: one Bool 
 }
 sig GroupRequest extends Request{
 }
@@ -184,14 +184,44 @@ fact GroupedNotFromTheFuture{
 all t1:ThirdParty, d1:Data, num:Int | d1 in t1.groupeddatareceived[num] implies d1.time< num
 }
 
-
 //The user can't allow the third party to receive future data
 fact NoAllowForTheFuture{
 all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
 }
 
 //MODELLING REQUESTS
-//if a request is successfull, the user involved in the request has give his permission
+//if the thid party has something, he has asked for the data before [done with a pred]
+pred existsassociatedRequest[t1:ThirdParty, d:Data, num:Int ]{
+one req:IndividualRequest | req.identifier = d.identifier and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted] and req.parameters = d.parameters
+}
+fact Onlyrequested{
+all t1:ThirdParty, num:Int,  d:Data |  num -> d in t1.datareceived <=>
+ (  ((not existsassociatedRequest[t1,d, num]) and ((num -1) -> d in t1.datareceived))   or  
+	( existsassociatedRequest[t1,d, num] and not((num -1) -> d in t1.datareceived))  
+)
+}
+
+//if a user has given his permission, he has been sked for it before[done with a pred]
+fact Onlyifrequested{
+all u1:User, num:Int,  d:Data, s:String |  num ->s -> d in u1.thirdpartiesallowed <=>
+ (  ((not existsassociatedRequest[getTheThirdParty[s],d, num]) and ((num -1) ->s-> d in u1.thirdpartiesallowed))   or  
+	( existsassociatedRequest[getTheThirdParty[s],d, num] and not((num -1) ->s-> d in u1.thirdpartiesallowed))  
+)
+}
+
+
+//if the thid party has something, he has asked for the data before [done with a pred]
+pred existsgroupedsassociatedRequest[t1:ThirdParty, d:Data, num:Int]{
+one req:GroupRequest | req.parameters = d.parameters and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted]
+}
+fact Onlygroupedrequested{
+all t1:ThirdParty,d1:Data,num:Int | num -> d1 in t1.groupeddatareceived <=> 
+ (  ((not existsgroupedsassociatedRequest[t1,d1, num]) and (num -1) -> d1 in t1.groupeddatareceived)   or  
+	(existsgroupedsassociatedRequest[t1,d1, num] and not((num -1) -> d1 in t1.groupeddatareceived)) 
+)
+}
+
+//if a request is successfull, the user involved in the request has give his permission (for the following instant and so on)
 fact SuccesfullIndividualRequestUser{
 all req1:IndividualRequest | all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ( isTrue[req1.accepted] <=> ((req1.time +1) -> ( req1.requester  -> d1 ) in  getTheUser[d1.identifier].thirdpartiesallowed))
 }
@@ -201,13 +231,12 @@ fact SuccessfullIndividualRequestThirdParty{
 all req1:IndividualRequest | all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ( isTrue[req1.accepted] <=> ((req1.time +1) -> d1 in  getTheThirdParty[req1.requester].datareceived))
 }
 
-//devo inserire d1.time < req.time e invece sopra no perchè .....
-fun GetTheMatchingNumberofUsers[req:GroupRequest]: one Int{
-{ #{s1:String | some d1:Data | d1.time <= req.time and d1.parameters = req.parameters and s1 = d1.identifier}}
-}
-
-fact SuccessfullGroupedRequestThirdParty{
-all req1: GroupRequest | GetTheMatchingNumberofUsers[req1] > 2 <=> (all d1:Data | (d1.time <= req1.time and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].groupeddatareceived)
+//a grouped request is accepted only if the number of data involving the request is more than 2 (arbitrary number for 1000)
+//fact OnlyifAnonymous{
+//all req1:GroupRequest | isTrue[req1.accepted] <=>
+//if a request is successfull, the following instant of time the third party has all his datas
+fact SuccessfullGroupRequestThirdParty{
+all req1:GroupRequest | all d1:Data | (d1.parameters = req1.parameters) <=> ( isTrue[req1.accepted] <=> ((req1.time +1) -> d1 in  getTheThirdParty[req1.requester].groupeddatareceived))
 }
 
 //assertions checking that privacy is always respected
@@ -215,5 +244,12 @@ assert PrivacyIsProtected{
 all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) <=> (one u1:User | (num -> (t1.email -> d1) in u1.thirdpartiesallowed)))
 }
 
+//an interesting predicate: we want to be sure that the third parties are able to receive data in our modelling
+pred AllowThirdPartiesToGetData{
+some t1:ThirdParty | some num:Int | (t1.datareceived[num] != none and t1.groupeddatareceived[num] != none)
+}
+
+//pred GetData
+
 //commands
-check PrivacyIsProtected for 2 but  exactly 2 String,  3 Int
+check PrivacyIsProtected for 6 but  exactly 8 String,  4 Int

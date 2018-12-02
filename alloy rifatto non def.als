@@ -193,12 +193,12 @@ all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] 
 //MODELLING REQUESTS
 //if a request is successfull, the user involved in the request has give his permission
 fact SuccesfullIndividualRequestUser{
-all req1:IndividualRequest | all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ( isTrue[req1.accepted] <=> ((req1.time +1) -> ( req1.requester  -> d1 ) in  getTheUser[d1.identifier].thirdpartiesallowed))
+all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ((req1.time +1) -> ( req1.requester  -> d1 ) in  getTheUser[d1.identifier].thirdpartiesallowed))
 }
 
 //if a request is successfull, the following instant of time the third party has all his datas
 fact SuccessfullIndividualRequestThirdParty{
-all req1:IndividualRequest | all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ( isTrue[req1.accepted] <=> ((req1.time +1) -> d1 in  getTheThirdParty[req1.requester].datareceived))
+all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].datareceived)
 }
 
 //devo inserire d1.time < req.time e invece sopra no perchè .....
@@ -210,10 +210,101 @@ fact SuccessfullGroupedRequestThirdParty{
 all req1: GroupRequest | GetTheMatchingNumberofUsers[req1] > 2 <=> (all d1:Data | (d1.time <= req1.time and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].groupeddatareceived)
 }
 
+
+
+
+
 //assertions checking that privacy is always respected
 assert PrivacyIsProtected{
-all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) <=> (one u1:User | (num -> (t1.email -> d1) in u1.thirdpartiesallowed)))
+all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) implies one u1:User | (num -> (t1.email -> d1) in u1.thirdpartiesallowed))
 }
 
+//an interesting predicate: we want to be sure that the third parties are able to receive data in our modelling
+pred AllowThirdPartiesToGetData{
+some t1:ThirdParty | some num:Int | (t1.datareceived[num] != none and t1.groupeddatareceived[num] != none)
+}
+
+
+
+//AutomatedSos
+//facts
+//a user with no automatedSos service  is never in danger of life ( in our modelling)
+fact DangerOfLifeonlyisAutomatedSos{
+all u1:User, t1: Int | ( (t1 -> True in  u1.inDangerOfLife) implies isTrue[u1.automatedSos]
+)}
+
+//a third party can handle alerts only if he is subscribed to AutomatedSOS
+fact HandleOnlyIfSubscribed{
+all t1: ThirdParty | ((some number: Int | number in t1.alerts)  implies  isTrue[t1.automatedSos])
+}
+
+//There can't be  two alerts with the same id
+fact AlertsIDAreunique{
+no disjoint al1, al2 : Alert | al1.alertID = al2.alertID
+}
+
+//third parties must have ids in its relation corresponding to unique alerts (consistency of alertID)
+fact CorrectAlertsID{
+all t1: ThirdParty | all number: t1.alerts | one al: Alert | number = al.alertID
+}
+
+//there are alerts only if the user is active (again: an assumption of our modeling)
+fact IfNonActiveThereareNoEmergencies{
+all al:Alert | IsActive[al.data.identifier]
+}
+
+//there can't be two contemporary emergencies for the same user
+fact NocontemporaryEmergenciesForTheSameUSer{
+all disj al1, al2: Alert | al1.data.identifier = al2.data.identifier implies al1.data.time != al2.data.time
+}
+
+//whenever a user is in danger of life, health values go below trehsholds (just for that time)
+fact DangerOfLife{
+all t1:Int, u1:User | ( (t1->True in u1.inDangerOfLife)  <=> (one d1:Data | (d1.time = t1 and  d1.identifier = u1.fiscalCode and d1.healthValues < u1.thresholds)))
+}
+
+//an alert is created only if healthvalues are under thresholds
+fact AlertCreation{
+all al1: Alert |  one u1:User | al1.data.healthValues < u1.thresholds
+}
+
+//an alert is created if healthvalues are under thresholds 
+fact AlertCreation2{
+all d1:Data | (  (one u1:User | (u1.fiscalCode = d1.identifier and d1.healthValues < u1.thresholds))  implies  (one al1:Alert | al1.data = d1))
+}
+
+
+// an alert is marked as "handling" if and only if there is exactly one third party which is handling it
+fact ExactlyOneHandling{
+all al1: Alert | (isTrue[al1.status.handling] <=>  (one t1: ThirdParty |  al1.alertID in t1.alerts))
+}
+
+
+//there are no alerts marked as not handling (which means, there is always a third party which handles the request)
+fact AllAlertsAreHandled{
+all al1:Alert | isTrue[al1.status.handling]
+}
+
+//when a third party handles an alert, the user is provided with medical assistance (we don't care how, it's out of our control)
+fact ProvideMedicalAssistance{
+all t1:ThirdParty, al1:Alert | ( (al1.alertID in t1.alerts) implies (all u1:User | ((u1.fiscalCode = al1.data.identifier) implies ( al1.data.time -> True in u1.IsUnderAssistance))))
+}
+
+
+//the main goal of AutomatedSos
+assert HandleEmergency{
+all t1:Int, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True in u1.IsUnderAssistance))
+}
+
+
 //commands
-check PrivacyIsProtected for 2 but  exactly 2 String,  3 Int
+check PrivacyIsProtected for 4  but  exactly 5 String,  4  Int
+
+
+
+
+
+
+
+
+
