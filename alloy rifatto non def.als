@@ -85,6 +85,14 @@ pred IsActive[u:String]{
 one u1:User |  u = u1.fiscalCode and  isTrue[u1.status.active]
 }
 
+fun getTheUser[identifier:String]: one User{
+ { u1:User | u1.fiscalCode = identifier}
+}
+
+fun getTheThirdParty[identifier:String]: one ThirdParty{
+{t1:ThirdParty | t1.email = identifier}
+}
+
 
 //facts
 //requests must regard subscribed users
@@ -169,47 +177,42 @@ all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.group
 
 //a third party can't receive data from the future
 fact NotFromTheFuture{
-all t1:ThirdParty, d1:Data, time:Int | d1 in t1.datareceived[time] implies d1.time < time
+all t1:ThirdParty, d1:Data, num:Int | d1 in t1.datareceived[num] implies d1.time < num
 }
 
 fact GroupedNotFromTheFuture{
-all t1:ThirdParty, d1:Data, time:Int | d1 in t1.groupeddatareceived[time] implies d1.time < time
+all t1:ThirdParty, d1:Data, num:Int | d1 in t1.groupeddatareceived[num] implies d1.time< num
 }
 
 
 //The user can't allow the third party to receive future data
 fact NoAllowForTheFuture{
-all u1:User, d1:Data, time:Int, s:String|  (d1 in u1.thirdpartiesallowed[time][s] implies d1.time < time)
+all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
 }
 
 //MODELLING REQUESTS
-//if a request is successfull, the following instant of time the third party has all his datas
+//if a request is successfull, the user involved in the request has give his permission
 fact SuccesfullIndividualRequestUser{
-all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | d1.identifier = req1.identifier implies req.time +1 -> ( req1.requester  -> d1 ) in u1 
-
-
-//Data4Help
-//modeling requests
-//request to a single user's data
-fact AccessToIndividualData {
-all u1: User, t1: ThirdParty, d1: Data, number:Int|
-	(d1 in t1.datareceived[number]  <=> 
-	(one req: IndividualRequest | 
-		(d1.time < req.time and 
-		req.time < number and
-		d1 not in t1.datareceived[req.time] and
-		req.requester = t1.email and
-		req.identifier = u1.fiscalCode and 
-		d1.identifier = u1.fiscalCode and
-		req.time -> (t1.email -> d1) not in u1.thirdpartiesallowed  and
-		d1.parameters = req.parameters and 
-		(all num:Int| 
-			( (num > req.time) implies (d1 in t1.datareceived[num] and num -> (t1.email -> d1) in u1.thirdpartiesallowed))
-		)
-		)
-	)
-	)
+all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ((req1.time +1) -> ( req1.requester  -> d1 ) in  getTheUser[d1.identifier].thirdpartiesallowed))
 }
+
+//if a request is successfull, the following instant of time the third party has all his datas
+fact SuccessfullIndividualRequestThirdParty{
+all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].datareceived)
+}
+
+//devo inserire d1.time < req.time e invece sopra no perchè .....
+fun GetTheMatchingNumberofUsers[req:GroupRequest]: one Int{
+{ #{s1:String | some d1:Data | d1.time <= req.time and d1.parameters = req.parameters and s1 = d1.identifier}}
+}
+
+fact SuccessfullGroupedRequestThirdParty{
+all req1: GroupRequest | GetTheMatchingNumberofUsers[req1] > 2 <=> (all d1:Data | (d1.time <= req1.time and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].groupeddatareceived)
+}
+
+
+
+
 
 //assertions checking that privacy is always respected
 assert PrivacyIsProtected{
@@ -295,7 +298,7 @@ all t1:Int, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True i
 
 
 //commands
-run AllowThirdPartiesToGetData for 4  but  exactly 5 String,  4  Int
+check PrivacyIsProtected for 4  but  exactly 5 String,  4  Int
 
 
 
