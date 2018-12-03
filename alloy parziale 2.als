@@ -199,19 +199,21 @@ no req:IndividualRequest | req.identifier = d.identifier and req.requester = t1.
 }
 fact Onlyrequested{
 all t1:ThirdParty, num:Int,  d:Data |  num -> d in t1.datareceived <=>
- (  
-	((notexistsassociatedRequest[t1,d, num-1]) and ((num -1) -> d in t1.datareceived))   or  
-	( existsassociatedRequest[t1,d, num-1] and (num -1) -> d not in t1.datareceived)
+ (  (notexistsassociatedRequest[t1,d, num] and (num -1) -> d in t1.datareceived)   or  
+	( existsassociatedRequest[t1,d, num] and (num -1) -> d not in t1.datareceived)  
 )
 }
 
+
 //if a user has given his permission, he has been asked for it before[done with a pred]
 fact Onlyifrequested{
-all u1:User, num:Int,  d:Data, t1:ThirdParty |  num ->t1-> d in u1.thirdpartiesallowed <=>
- (  ((not existsassociatedRequest[t1,d, num-1]) and ((num -1) ->t1-> d in u1.thirdpartiesallowed))   or  
-	( existsassociatedRequest[t1,d, num-1] and (num -1) ->t1-> d not in u1.thirdpartiesallowed)
+all u1:User, num:Int,  d:Data, s: ThirdParty |  num ->s -> d in u1.thirdpartiesallowed <=>
+ (  
+	(notexistsassociatedRequest[s,d, num] and (num -1) ->s-> d in u1.thirdpartiesallowed)   or  
+	( existsassociatedRequest[s,d, num] and (num -1) ->s-> d not in u1.thirdpartiesallowed)  
 )
 }
+
 
 //if the thid party has something, he has asked for the data before [done with a pred]
 pred existsgroupedsassociatedRequest[t1:ThirdParty, d:Data, num:Int]{
@@ -222,10 +224,12 @@ no req:GroupRequest | (req.parameters = d.parameters and req.requester = t1.emai
 }
 fact Onlygroupedrequested{
 all t1:ThirdParty,d1:Data,num:Int | num -> d1 in t1.groupeddatareceived <=> 
- (  (  notexistsgroupedsassociatedRequest[t1,d1, num-1] and (num -1) -> d1 in t1.groupeddatareceived)   or  
-	(existsgroupedsassociatedRequest[t1,d1, num-1] and (num -1) -> d1 not in t1.groupeddatareceived) 
+ (  
+     (notexistsgroupedsassociatedRequest[t1,d1, num] and (num -1) -> d1 in t1.groupeddatareceived)   or  
+	(existsgroupedsassociatedRequest[t1,d1, num] and (num -1) -> d1 not in t1.groupeddatareceived) 
 )
 }
+
 
 //a grouped request is accepted only if the number of data involving the request is more than 2 (arbitrary number for 1000)
 //fact OnlyifAnonymous{
@@ -241,8 +245,13 @@ all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) <=> (one 
 pred AllowThirdPartiesToGetData{
 some t1:ThirdParty | some num:Int | (t1.datareceived[num] != none and t1.groupeddatareceived[num] != none)
 }
-
-//pred GetData
+pred GetData[d1:Data, num:Int, t1:ThirdParty]{
+//preconditions
+num -> d1 not in t1.datareceived
+//postconditions
+one req:IndividualRequest| req.time = num and req.parameters = d1.parameters and req.requester = t1.email and req.identifier = d1.identifier and isTrue[req.accepted]
+(num+1) -> d1 in t1.datareceived
+}
 
 //commands
-run AllowThirdPartiesToGetData  for 5 but  exactly 5 String,  5 Int
+run GetData for 5 but  exactly 5 String,  5 Int
