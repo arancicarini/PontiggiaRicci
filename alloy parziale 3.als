@@ -281,7 +281,7 @@ one req:IndividualRequest| req.time = num and req.parameters = d1.parameters and
 }
 
 //commands
-run AllowThirdPartiesToGetData for 2 but  exactly 6 String, 7 Int
+run AllowThirdPartiesToGetData for 6 but  exactly 6 String, 7 Int
 
 
 

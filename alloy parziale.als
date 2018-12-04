@@ -9,7 +9,7 @@ automatedSos: one Bool
 sig User extends Client{
 fiscalCode: one String,
 status: one UserStatus,
-thirdpartiesallowed: Int -> (String -> Data), 
+thirdpartiesallowed: Int -> (ThirdParty -> Data), 
 inDangerOfLife : Int -> one Bool,
 IsUnderAssistance: Int -> one Bool,
 thresholds: one Int
@@ -136,7 +136,7 @@ no disj d1,d2: Data | d1.identifier = d2.identifier and d1.time = d2.time
 
 //a user can give permission only for his data
 fact OnlyMyData{
-all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.identifier = u1.fiscalCode)
+all u1:User, d1:Data, num:Int, s:ThirdParty|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.identifier = u1.fiscalCode)
 }
 
 //third parties e utenti non possono avere lo stesso identificativo
@@ -147,12 +147,12 @@ all t1:ThirdParty, u1:User | t1.email != u1.fiscalCode
 //TIME MODELLING
 // all'istante zero non ci sono tuple
 fact ZeroFirstUser{
-all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (number > 0 ) )
+all u1:User | all number:Int  | all s:ThirdParty | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (number > 0 ) )
 }
 
 //se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
 fact InvariantUser{
-all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (all num:Int | (num>number) implies(num -> (s -> d)) in u1.thirdpartiesallowed))
+all u1:User | all number:Int  | all s:ThirdParty | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (all num:Int | (num>number) implies(num -> (s -> d)) in u1.thirdpartiesallowed))
 }
 
 //all'instante Zero non ci sono tuple
@@ -186,26 +186,30 @@ all t1:ThirdParty, d1:Data, num:Int | d1 in t1.groupeddatareceived[num] implies 
 
 //The user can't allow the third party to receive future data
 fact NoAllowForTheFuture{
-all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
+all u1:User, d1:Data, num:Int, s:ThirdParty|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
 }
 
 //MODELLING REQUESTS
 //if the thid party has something, he has asked for the data before [done with a pred]
 pred existsassociatedRequest[t1:ThirdParty, d:Data, num:Int ]{
-one req:IndividualRequest | req.identifier = d.identifier and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted] and req.parameters = d.parameters
+one req:IndividualRequest | req.identifier = d.identifier and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted] and req.parameters = d.parameters and d.time <= req.time
+}
+pred notexistsassociatedRequest[t1:ThirdParty, d:Data, num:Int ]{
+no req:IndividualRequest | req.identifier = d.identifier and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted] and req.parameters = d.parameters and d.time <= req.time
 }
 fact Onlyrequested{
 all t1:ThirdParty, num:Int,  d:Data |  num -> d in t1.datareceived <=>
- (  ((not existsassociatedRequest[t1,d, num]) and ((num -1) -> d in t1.datareceived))   or  
-	( existsassociatedRequest[t1,d, num] and not((num -1) -> d in t1.datareceived))  
+ (  (notexistsassociatedRequest[t1,d, num] and (num -1) -> d in t1.datareceived)   or  
+	( existsassociatedRequest[t1,d, num] and (num -1) -> d not in t1.datareceived)  
 )
 }
 
 //if a user has given his permission, he has been sked for it before[done with a pred]
 fact Onlyifrequested{
-all u1:User, num:Int,  d:Data, s:String |  num ->s -> d in u1.thirdpartiesallowed <=>
- (  ((not existsassociatedRequest[getTheThirdParty[s],d, num]) and ((num -1) ->s-> d in u1.thirdpartiesallowed))   or  
-	( existsassociatedRequest[getTheThirdParty[s],d, num] and not((num -1) ->s-> d in u1.thirdpartiesallowed))  
+all u1:User, num:Int,  d:Data, s: ThirdParty |  num ->s -> d in u1.thirdpartiesallowed <=>
+ (  
+	(notexistsassociatedRequest[s,d, num] and (num -1) ->s-> d in u1.thirdpartiesallowed)   or  
+	( existsassociatedRequest[s,d, num] and (num -1) ->s-> d not in u1.thirdpartiesallowed)  
 )
 }
 
@@ -214,10 +218,15 @@ all u1:User, num:Int,  d:Data, s:String |  num ->s -> d in u1.thirdpartiesallowe
 pred existsgroupedsassociatedRequest[t1:ThirdParty, d:Data, num:Int]{
 one req:GroupRequest | req.parameters = d.parameters and req.requester = t1.email and req.time = (num-1) and isTrue[req.accepted]
 }
+
+pred notexistsgroupedsassociatedRequest[t1:ThirdParty, d:Data, num:Int]{
+no req:GroupRequest | (req.parameters = d.parameters and req.requester = t1.email and req.time = (num) and isTrue[req.accepted] and d.time <= req.time)
+}
 fact Onlygroupedrequested{
 all t1:ThirdParty,d1:Data,num:Int | num -> d1 in t1.groupeddatareceived <=> 
- (  ((not existsgroupedsassociatedRequest[t1,d1, num]) and (num -1) -> d1 in t1.groupeddatareceived)   or  
-	(existsgroupedsassociatedRequest[t1,d1, num] and not((num -1) -> d1 in t1.groupeddatareceived)) 
+ (  
+     (notexistsgroupedsassociatedRequest[t1,d1, num] and (num -1) -> d1 in t1.groupeddatareceived)   or  
+	(existsgroupedsassociatedRequest[t1,d1, num] and (num -1) -> d1 not in t1.groupeddatareceived) 
 )
 }
 
