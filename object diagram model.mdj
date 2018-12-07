@@ -1766,7 +1766,7 @@
 											"height": 13,
 											"autoResize": false,
 											"underline": false,
-											"text": "+getAllEmergencies(): List<Emergencies>",
+											"text": "+getAllEmergencies(): List<Alert>",
 											"horizontalAlignment": 0,
 											"verticalAlignment": 5,
 											"wordWrap": false
@@ -1795,7 +1795,7 @@
 											"height": 13,
 											"autoResize": false,
 											"underline": false,
-											"text": "+HandleAnEmergency(e: Emergency, ThirdPArtyID: ID): boolean",
+											"text": "+HandleAnEmergency(a: Alert, ThirdPArtyID: ID): boolean",
 											"horizontalAlignment": 0,
 											"verticalAlignment": 5,
 											"wordWrap": false
@@ -5367,7 +5367,7 @@
 									"visibility": "public",
 									"isStatic": false,
 									"isLeaf": false,
-									"type": "List<Emergencies>",
+									"type": "List<Alert>",
 									"isReadOnly": false,
 									"isOrdered": false,
 									"isUnique": false,
@@ -5395,11 +5395,11 @@
 									"_parent": {
 										"$ref": "AAAAAAFnhDQ/qoZI+AM="
 									},
-									"name": "e",
+									"name": "a",
 									"visibility": "public",
 									"isStatic": false,
 									"isLeaf": false,
-									"type": "Emergency",
+									"type": "Alert",
 									"isReadOnly": false,
 									"isOrdered": false,
 									"isUnique": false,
