@@ -9,7 +9,7 @@ automatedSos: one Bool
 sig User extends Client{
 fiscalCode: one String,
 status: one UserStatus,
-thirdpartiesallowed: Int -> (String -> Data), 
+thirdpartiesallowed: Int -> (ThirdParty -> Data), 
 inDangerOfLife : Int -> one Bool,
 IsUnderAssistance: Int -> one Bool,
 thresholds: one Int
@@ -41,16 +41,15 @@ abstract sig Request{
 requestID: Int,
 requester:String,
 time: Int,
-parameters: one Parameters
+parameters: one Parameters,
+accepted: one Bool 
 }
 {
 requestID > 0
-time > 0
 }
 
 sig IndividualRequest extends Request{
 identifier: one String,
-accepted: one Bool 
 }
 sig GroupRequest extends Request{
 }
@@ -62,14 +61,11 @@ healthValues: one Int,
 time: one Int,
 }
 
+
 sig Parameters{
 }
 
-//TO DO LIST
-// riscrivere i fact aiutandosi con dei pred per rendere il tutto più leggibile
-//modellizzare la creazione di data
-//guardare quaderno principles
-// useful preds
+// useful preds and functions
 pred IsSubscribedtoData4Help[u:String]{
 one u1:User | u = u1.fiscalCode
 }
@@ -79,27 +75,21 @@ pred IsSubscribedtoAutomatedSos[u:String]{
 one u1:User |  u = u1.fiscalCode and  isTrue[u1.automatedSos]
 }
 
-
 //if a user is active or inactive
 pred IsActive[u:String]{
 one u1:User |  u = u1.fiscalCode and  isTrue[u1.status.active]
 }
 
-fun getTheUser[identifier:String]: one User{
- { u1:User | u1.fiscalCode = identifier}
+fun ThePrevious[num:Int]: one Int{
+{prev: Int | prev = num -1 }
 }
-
-fun getTheThirdParty[identifier:String]: one ThirdParty{
-{t1:ThirdParty | t1.email = identifier}
-}
-
 
 //facts
 //requests must regard subscribed users
-fact IndivdualRequestmustRegardAsubscribedUser{
+fact IndividualRequestmustRegardAsubscribedUser{
   all r1: IndividualRequest |  IsSubscribedtoData4Help[r1.identifier]
 }
-//Notworequestsatthesametimebythesamethirdaprty
+//No two requests at the same time by the same third party
 fact NoContemporary{
 no disjoint req1, req2: Request | req1.requester = req2.requester and req1.time = req2.time
 }
@@ -136,7 +126,7 @@ no disj d1,d2: Data | d1.identifier = d2.identifier and d1.time = d2.time
 
 //a user can give permission only for his data
 fact OnlyMyData{
-all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.identifier = u1.fiscalCode)
+all u1:User, d1:Data, num:Int, t1:ThirdParty|  (d1 in u1.thirdpartiesallowed[num][t1] implies d1.identifier = u1.fiscalCode)
 }
 
 //third parties e utenti non possono avere lo stesso identificativo
@@ -145,36 +135,6 @@ all t1:ThirdParty, u1:User | t1.email != u1.fiscalCode
 }
 
 //TIME MODELLING
-// all'istante zero non ci sono tuple
-fact ZeroFirstUser{
-all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (number > 0 ) )
-}
-
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
-fact InvariantUser{
-all u1:User | all number:Int  | all s:String | all d:Data | ( ((number -> (s -> d)) in u1.thirdpartiesallowed) implies (all num:Int | (num>number) implies(num -> (s -> d)) in u1.thirdpartiesallowed))
-}
-
-//all'instante Zero non ci sono tuple
-fact ZeroFirstDataReceived{
-all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.datareceived) implies (number > 0 ))
-}
-
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
-fact InvariantDataReceived{
-all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.datareceived) implies (all num:Int | (num>number)implies((num -> d) in t1.datareceived)))
-}
-
-//all'istante Zero non ci sono tuple
-fact ZeroFirstgroupedDataReceived{
-all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.groupeddatareceived) implies (number > 0 ))
-}
-
-//se in un istante si inserisce una tupla, questa resterà inserita anche in tutti gli istanti successivi
-fact InvariantgroupedDataReceived{
-all t1:ThirdParty | all number:Int  |  all d:Data | ( ((number -> d) in t1.groupeddatareceived) implies (all num:Int | (num>number)implies((num -> d) in t1.groupeddatareceived)))
-}
-
 //a third party can't receive data from the future
 fact NotFromTheFuture{
 all t1:ThirdParty, d1:Data, num:Int | d1 in t1.datareceived[num] implies d1.time < num
@@ -184,47 +144,65 @@ fact GroupedNotFromTheFuture{
 all t1:ThirdParty, d1:Data, num:Int | d1 in t1.groupeddatareceived[num] implies d1.time< num
 }
 
-
 //The user can't allow the third party to receive future data
 fact NoAllowForTheFuture{
-all u1:User, d1:Data, num:Int, s:String|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
+all u1:User, d1:Data, num:Int, s:ThirdParty|  (d1 in u1.thirdpartiesallowed[num][s] implies d1.time < num)
 }
 
 //MODELLING REQUESTS
-//if a request is successfull, the user involved in the request has give his permission
-fact SuccesfullIndividualRequestUser{
-all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> ((req1.time +1) -> ( req1.requester  -> d1 ) in  getTheUser[d1.identifier].thirdpartiesallowed))
+//if the third party has something, he has asked for the data before [done with a pred]
+pred existsassociatedRequest[t1:ThirdParty, d:Data, num:Int, req:IndividualRequest, u1:User ]{
+ (req.identifier = d.identifier and req.requester = t1.email and u1.fiscalCode = d.identifier and req.time = ThePrevious[num] and isTrue[req.accepted] and req.parameters = d.parameters and d.time <= req.time)
+}
+fact Onlyrequested{
+all t1:ThirdParty, num:Int,  d:Data, u1:User |  (
+	(num -> d in t1.datareceived ) 
+	<=>
+ 	(one req:IndividualRequest| existsassociatedRequest[t1,d, num,req,u1])
+)
 }
 
-//if a request is successfull, the following instant of time the third party has all his datas
-fact SuccessfullIndividualRequestThirdParty{
-all req1:IndividualRequest | isTrue[req1.accepted] <=>  (all d1:Data | (d1.identifier = req1.identifier and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].datareceived)
+pred existsgroupedsassociatedRequest[t1:ThirdParty, d:Data, num:Int, req:GroupRequest]{
+ (req.parameters = d.parameters and req.requester = t1.email and req.time = ThePrevious[num] and isTrue[req.accepted] and d.time <= req.time)
+}
+fact groupedonlyifrequested{
+all t1:ThirdParty,d1:Data,num:Int |(
+	(num -> d1 in t1.groupeddatareceived)
+	<=> 
+ 	(one req: GroupRequest| existsgroupedsassociatedRequest[t1,d1, num,req])
+)
 }
 
-//devo inserire d1.time < req.time e invece sopra no perchè .....
-fun GetTheMatchingNumberofUsers[req:GroupRequest]: one Int{
-{ #{s1:String | some d1:Data | d1.time <= req.time and d1.parameters = req.parameters and s1 = d1.identifier}}
+//if a user has given his permission, he has been asked for it before[done with a pred]
+fact onlyifrequested{
+all u1:User,  d:Data, t1: ThirdParty, num:Int |(
+	(num ->t1 -> d in u1.thirdpartiesallowed ) 
+	<=>
+	( one req: IndividualRequest|existsassociatedRequest[t1,d, num,req,u1])
+)
 }
 
-fact SuccessfullGroupedRequestThirdParty{
-all req1: GroupRequest | GetTheMatchingNumberofUsers[req1] > 2 <=> (all d1:Data | (d1.time <= req1.time and d1.parameters = req1.parameters) <=> (req1.time +1) -> d1 in  getTheThirdParty[req1.requester].groupeddatareceived)
+//a grouped request is accepted only if the number of users involved in the request is more than 2 (arbitrary number for 1000)
+fun GetTheUsers[req: GroupRequest]: set User{
+{ u1:User | some d1:Data | d1.identifier = u1.fiscalCode and d1.parameters = req.parameters and req.time >= d1.time}
+} 
+fact OnlyifAnonymous{
+all req1:GroupRequest | isTrue[req1.accepted] <=> #GetTheUsers[req1] > 2
 }
-
-
-
-
 
 //assertions checking that privacy is always respected
 assert PrivacyIsProtected{
-all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) implies one u1:User | (num -> (t1.email -> d1) in u1.thirdpartiesallowed))
+all t1:ThirdParty, num:Int,  d1: Data | ( (num->d1 in t1.datareceived) <=> (one u1:User | (num -> (t1 -> d1) in u1.thirdpartiesallowed)))
 }
 
-//an interesting predicate: we want to be sure that the third parties are able to receive data in our modelling
+// interesting predicates: we want to be sure that the third parties are able to receive data in our modelling
+pred AllowThirdPartiesToGetGroupedData{
+some t1:ThirdParty | some num:Int | (t1.groupeddatareceived[num] != none)
+}
+
 pred AllowThirdPartiesToGetData{
-some t1:ThirdParty | some num:Int | (t1.datareceived[num] != none and t1.groupeddatareceived[num] != none)
+some t1:ThirdParty | some num:Int | (t1.datareceived[num] != none)
 }
-
-
 
 //AutomatedSos
 //facts
@@ -243,7 +221,7 @@ fact AlertsIDAreunique{
 no disjoint al1, al2 : Alert | al1.alertID = al2.alertID
 }
 
-//third parties must have ids in its relation corresponding to unique alerts (consistency of alertID)
+//third parties must have ids in their relation corresponding to unique alerts (consistency of alertID)
 fact CorrectAlertsID{
 all t1: ThirdParty | all number: t1.alerts | one al: Alert | number = al.alertID
 }
@@ -258,7 +236,7 @@ fact NocontemporaryEmergenciesForTheSameUSer{
 all disj al1, al2: Alert | al1.data.identifier = al2.data.identifier implies al1.data.time != al2.data.time
 }
 
-//whenever a user is in danger of life, health values go below trehsholds (just for that time)
+//whenever a user is in danger of life, health values go below thresholds (just for that time)
 fact DangerOfLife{
 all t1:Int, u1:User | ( (t1->True in u1.inDangerOfLife)  <=> (one d1:Data | (d1.time = t1 and  d1.identifier = u1.fiscalCode and d1.healthValues < u1.thresholds)))
 }
@@ -290,15 +268,21 @@ fact ProvideMedicalAssistance{
 all t1:ThirdParty, al1:Alert | ( (al1.alertID in t1.alerts) implies (all u1:User | ((u1.fiscalCode = al1.data.identifier) implies ( al1.data.time -> True in u1.IsUnderAssistance))))
 }
 
-
 //the main goal of AutomatedSos
 assert HandleEmergency{
 all t1:Int, u1:User | ( ( (t1->True) in u1.inDangerOfLife) implies (t1 -> True in u1.IsUnderAssistance))
 }
 
+pred CanHandle{
+some t1: ThirdParty| some num: Int | num in t1.alerts
+}
 
 //commands
-check PrivacyIsProtected for 4  but  exactly 5 String,  4  Int
+run AllowThirdPartiesToGetGroupedData for 4  but  exactly 5 String,  5  Int,  0 Alert, 0 EmergencyStatus
+check PrivacyIsProtected  for 5 but  exactly 5 String, 5 Int
+
+
+
 
 
 
