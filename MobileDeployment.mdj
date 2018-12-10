@@ -12619,7 +12619,7 @@
 									},
 									"edgePosition": 1,
 									"underline": false,
-									"text": "+TCP/IP",
+									"text": "+rmi",
 									"horizontalAlignment": 2,
 									"verticalAlignment": 5,
 									"wordWrap": false
@@ -13100,7 +13100,7 @@
 							"_parent": {
 								"$ref": "AAAAAAFniayOXEhjHNY="
 							},
-							"name": "TCP/IP",
+							"name": "rmi",
 							"end1": {
 								"_type": "UMLAssociationEnd",
 								"_id": "AAAAAAFnib7StUtjc4c=",
